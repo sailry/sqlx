@@ -1,12 +1,24 @@
-use std::iter::{Extend, IntoIterator};
+use std::{
+    iter::{Extend, IntoIterator},
+    sync::Arc,
+};
+
+use crate::MySqlColumn;
 
 #[derive(Debug, Default)]
 pub struct MySqlQueryResult {
     pub(super) rows_affected: u64,
     pub(super) last_insert_id: u64,
+    pub(super) columns: Arc<Vec<MySqlColumn>>,
 }
 
 impl MySqlQueryResult {
+    /// Returns the columns of this completed result set, including a result set
+    /// with zero rows. Commands without a result set return an empty slice.
+    pub fn columns(&self) -> &[MySqlColumn] {
+        &self.columns
+    }
+
     pub fn last_insert_id(&self) -> u64 {
         self.last_insert_id
     }
@@ -21,6 +33,7 @@ impl Extend<MySqlQueryResult> for MySqlQueryResult {
         for elem in iter {
             self.rows_affected += elem.rows_affected;
             self.last_insert_id = elem.last_insert_id;
+            self.columns = elem.columns;
         }
     }
 }

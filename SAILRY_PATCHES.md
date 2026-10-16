@@ -17,5 +17,10 @@ All upstream license notices remain unchanged.
   `SQLITE_OPEN_NOFOLLOW` flag, which v0.9.0 does not expose. This keeps file creation
   from following a substituted symbolic link after application path checks.
 
-These additions are transport and file-open options only. Sailry uses ordinary SQLx drivers,
+- `MySqlQueryResult::columns` retains metadata on the existing completion event,
+  including zero-row result sets whose columns are unavailable during `CALL`
+  preparation. This lets dynamic SQL consumers distinguish and display the first
+  result set while still draining later sets through the ordinary executor.
+
+These additions expose transport, file-open and result metadata. Sailry uses ordinary SQLx drivers,
 queries and native-handle access; no application workflow belongs in this fork.

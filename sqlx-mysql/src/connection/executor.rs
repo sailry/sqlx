@@ -1,4 +1,5 @@
 use super::MySqlStream;
+use crate::HashMap;
 use crate::connection::stream::Waiting;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
@@ -11,15 +12,14 @@ use crate::protocol::statement::{
 };
 use crate::protocol::text::{ColumnDefinition, Query, TextRow};
 use crate::statement::{MySqlStatement, MySqlStatementMetadata};
-use crate::HashMap;
 use crate::{
     MySql, MySqlArguments, MySqlColumn, MySqlConnection, MySqlQueryResult, MySqlRow, MySqlTypeInfo,
     MySqlValueFormat,
 };
 use either::Either;
+use futures_core::Stream;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
-use futures_core::Stream;
 use futures_util::TryStreamExt;
 use sqlx_core::column::{ColumnOrigin, TableColumn};
 use sqlx_core::sql_str::SqlStr;
@@ -196,6 +196,7 @@ impl MySqlConnection {
                     let done = MySqlQueryResult {
                         rows_affected,
                         last_insert_id: ok.last_insert_id,
+                        columns: Arc::default(),
                     };
 
                     r#yield!(Either::Left(done));
@@ -239,6 +240,7 @@ impl MySqlConnection {
                         r#yield!(Either::Left(MySqlQueryResult {
                             rows_affected,
                             last_insert_id,
+                            columns: Arc::clone(&columns),
                         }));
 
                         if status.contains(Status::SERVER_MORE_RESULTS_EXISTS) {
