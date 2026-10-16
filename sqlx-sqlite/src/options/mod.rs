@@ -18,7 +18,7 @@ pub use synchronous::SqliteSynchronous;
 
 use crate::common::DebugFn;
 use crate::connection::collation::Collation;
-use sqlx_core::{config, IndexMap};
+use sqlx_core::{IndexMap, config};
 
 /// Options and flags which can be used to configure a SQLite connection.
 ///
@@ -63,6 +63,7 @@ pub struct SqliteConnectOptions {
     pub(crate) filename: Cow<'static, Path>,
     pub(crate) in_memory: bool,
     pub(crate) read_only: bool,
+    pub(crate) no_follow: bool,
     pub(crate) create_if_missing: bool,
     pub(crate) shared_cache: bool,
     pub(crate) statement_cache_capacity: usize,
@@ -197,6 +198,7 @@ impl SqliteConnectOptions {
             filename: Cow::Borrowed(Path::new(":memory:")),
             in_memory: false,
             read_only: false,
+            no_follow: false,
             create_if_missing: false,
             shared_cache: false,
             statement_cache_capacity: 100,
@@ -287,6 +289,13 @@ impl SqliteConnectOptions {
     /// The default locking mode is NORMAL.
     pub fn locking_mode(self, mode: SqliteLockingMode) -> Self {
         self.pragma("locking_mode", mode.as_str())
+    }
+
+    /// Rejects symbolic links when opening the database using SQLite's
+    /// `SQLITE_OPEN_NOFOLLOW` flag. This preserves a checked path at file creation.
+    pub fn no_follow(mut self, no_follow: bool) -> Self {
+        self.no_follow = no_follow;
+        self
     }
 
     /// Sets the [access mode](https://www.sqlite.org/c3ref/open.html) to open the database

@@ -45,11 +45,13 @@ async fn maybe_upgrade<S: Socket>(
         }
     }
 
-    let accept_invalid_certs = !matches!(
-        options.ssl_mode,
-        PgSslMode::VerifyCa | PgSslMode::VerifyFull
-    );
-    let accept_invalid_hostnames = !matches!(options.ssl_mode, PgSslMode::VerifyFull);
+    let accept_invalid_certs = !options.ssl_verify_server
+        && !matches!(
+            options.ssl_mode,
+            PgSslMode::VerifyCa | PgSslMode::VerifyFull
+        );
+    let accept_invalid_hostnames =
+        !options.ssl_verify_server && !matches!(options.ssl_mode, PgSslMode::VerifyFull);
 
     let config = TlsConfig {
         accept_invalid_certs,

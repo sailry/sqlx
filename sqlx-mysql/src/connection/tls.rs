@@ -1,9 +1,9 @@
 use crate::connection::{MySqlStream, Waiting};
 use crate::error::Error;
 use crate::net::tls::TlsConfig;
-use crate::net::{tls, BufferedSocket, Socket, WithSocket};
-use crate::protocol::connect::SslRequest;
+use crate::net::{BufferedSocket, Socket, WithSocket, tls};
 use crate::protocol::Capabilities;
+use crate::protocol::connect::SslRequest;
 use crate::{MySqlConnectOptions, MySqlSslMode};
 use std::collections::VecDeque;
 
@@ -54,11 +54,13 @@ pub(super) async fn maybe_upgrade<S: Socket>(
     }
 
     let tls_config = TlsConfig {
-        accept_invalid_certs: !matches!(
-            options.ssl_mode,
-            MySqlSslMode::VerifyCa | MySqlSslMode::VerifyIdentity
-        ),
-        accept_invalid_hostnames: !matches!(options.ssl_mode, MySqlSslMode::VerifyIdentity),
+        accept_invalid_certs: !options.ssl_verify_server
+            && !matches!(
+                options.ssl_mode,
+                MySqlSslMode::VerifyCa | MySqlSslMode::VerifyIdentity
+            ),
+        accept_invalid_hostnames: !options.ssl_verify_server
+            && !matches!(options.ssl_mode, MySqlSslMode::VerifyIdentity),
         hostname: &options.host,
         root_cert_path: options.ssl_ca.as_ref(),
         client_cert_path: options.ssl_client_cert.as_ref(),

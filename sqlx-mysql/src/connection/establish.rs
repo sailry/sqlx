@@ -1,23 +1,31 @@
-use bytes::buf::Buf;
 use bytes::Bytes;
+use bytes::buf::Buf;
 
 use crate::common::StatementCache;
-use crate::connection::{tls, MySqlConnectionInner, MySqlStream, MAX_PACKET_SIZE};
+use crate::connection::{MAX_PACKET_SIZE, MySqlConnectionInner, MySqlStream, tls};
 use crate::error::Error;
 use crate::net::{Socket, WithSocket};
+use crate::protocol::Capabilities;
 use crate::protocol::connect::{
     AuthSwitchRequest, AuthSwitchResponse, Handshake, HandshakeResponse,
 };
-use crate::protocol::Capabilities;
 use crate::{MySqlConnectOptions, MySqlConnection, MySqlSslMode};
 
 impl MySqlConnection {
     pub(crate) async fn establish(options: &MySqlConnectOptions) -> Result<Self, Error> {
+        let address = options.connect_addr.map(|address| address.to_string());
         let do_handshake = DoHandshake::new(options)?;
 
         let handshake = match &options.socket {
             Some(path) => crate::net::connect_uds(path, do_handshake).await?,
-            None => crate::net::connect_tcp(&options.host, options.port, do_handshake).await?,
+            None => {
+                crate::net::connect_tcp(
+                    address.as_deref().unwrap_or(&options.host),
+                    options.port,
+                    do_handshake,
+                )
+                .await?
+            }
         };
 
         let stream = handshake?;

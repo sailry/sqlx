@@ -16,6 +16,8 @@ mod ssl_mode;
 #[derive(Debug, Clone)]
 pub struct PgConnectOptions {
     pub(crate) host: String,
+    pub(crate) connect_addr: Option<std::net::IpAddr>,
+    pub(crate) ssl_verify_server: bool,
     pub(crate) port: u16,
     pub(crate) socket: Option<PathBuf>,
     pub(crate) username: String,
@@ -78,6 +80,8 @@ impl PgConnectOptions {
         PgConnectOptions {
             port,
             host,
+            connect_addr: None,
+            ssl_verify_server: false,
             socket: None,
             username,
             password: var("PGPASSWORD").ok(),
@@ -110,6 +114,20 @@ impl PgConnectOptions {
             );
         }
 
+        self
+    }
+
+    /// Overrides the TCP address without changing the hostname used for TLS verification.
+    /// This supports authenticated tunnels whose endpoint differs from the server identity.
+    pub fn connect_addr(mut self, address: std::net::IpAddr) -> Self {
+        self.connect_addr = Some(address);
+        self
+    }
+
+    /// Verifies the server certificate and hostname whenever TLS is negotiated,
+    /// including preferred TLS. A server that refuses TLS can still use the selected mode.
+    pub fn ssl_verify_server(mut self, verify: bool) -> Self {
+        self.ssl_verify_server = verify;
         self
     }
 
@@ -670,4 +688,21 @@ fn test_pg_write_escaped() {
     x.write_char(' ').unwrap();
     x.write_char('z').unwrap();
     assert_eq!(buf, r"x\\y\ \\\ z");
+}
+
+#[cfg(test)]
+mod tunnel_options {
+    use super::*;
+
+    #[test]
+    fn preserves_server_identity() {
+        let address = std::net::Ipv4Addr::LOCALHOST.into();
+        let options = PgConnectOptions::new()
+            .host("database.example")
+            .connect_addr(address)
+            .ssl_verify_server(true);
+        assert_eq!(options.host, "database.example");
+        assert_eq!(options.connect_addr, Some(address));
+        assert!(options.ssl_verify_server);
+    }
 }

@@ -62,6 +62,8 @@ pub use ssl_mode::MySqlSslMode;
 #[derive(Debug, Clone)]
 pub struct MySqlConnectOptions {
     pub(crate) host: String,
+    pub(crate) connect_addr: Option<std::net::IpAddr>,
+    pub(crate) ssl_verify_server: bool,
     pub(crate) port: u16,
     pub(crate) socket: Option<PathBuf>,
     pub(crate) username: String,
@@ -94,6 +96,8 @@ impl MySqlConnectOptions {
         Self {
             port: 3306,
             host: String::from("localhost"),
+            connect_addr: None,
+            ssl_verify_server: false,
             socket: None,
             username: String::from("root"),
             password: None,
@@ -112,6 +116,20 @@ impl MySqlConnectOptions {
             timezone: Some(String::from("+00:00")),
             set_names: true,
         }
+    }
+
+    /// Overrides the TCP address without changing the hostname used for TLS verification.
+    /// This supports authenticated tunnels whose endpoint differs from the server identity.
+    pub fn connect_addr(mut self, address: std::net::IpAddr) -> Self {
+        self.connect_addr = Some(address);
+        self
+    }
+
+    /// Verifies the server certificate and hostname whenever TLS is negotiated,
+    /// including preferred TLS. A server that refuses TLS can still use the selected mode.
+    pub fn ssl_verify_server(mut self, verify: bool) -> Self {
+        self.ssl_verify_server = verify;
+        self
     }
 
     /// Sets the name of the host to connect to.
@@ -525,5 +543,22 @@ impl MySqlConnectOptions {
     /// ```
     pub fn get_collation(&self) -> Option<&str> {
         self.collation.as_deref()
+    }
+}
+
+#[cfg(test)]
+mod tunnel_options {
+    use super::*;
+
+    #[test]
+    fn preserves_server_identity() {
+        let address = std::net::Ipv4Addr::LOCALHOST.into();
+        let options = MySqlConnectOptions::new()
+            .host("database.example")
+            .connect_addr(address)
+            .ssl_verify_server(true);
+        assert_eq!(options.host, "database.example");
+        assert_eq!(options.connect_addr, Some(address));
+        assert!(options.ssl_verify_server);
     }
 }
